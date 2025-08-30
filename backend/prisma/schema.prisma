@@ -185,3 +185,15 @@ model Submission {
   student     User     @relation(fields: [studentId], references: [id])
   @@unique([homeworkId, studentId])
 }
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId])
+  @@index([expiresAt])
+}

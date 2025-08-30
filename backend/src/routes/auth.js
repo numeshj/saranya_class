@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
+import { findUserByEmail, createUser, toSafe } from '../services/userRepo.js';
 import { RefreshToken } from '../models/RefreshToken.js';
 import argon2 from 'argon2';
 import { body, validationResult } from 'express-validator';
@@ -22,13 +23,12 @@ function signTokens(user) {
 
 router.post('/register', makeValidator(schemas.register), async (req, res) => {
   const { email, password, firstName, lastName } = req.body;
-  const exists = await User.findOne({ email });
+  const exists = await findUserByEmail(email);
   if (exists) return res.status(409).json({ message: 'Email in use' });
-  const passwordHash = await argon2.hash(password);
-  const user = await User.create({ email, passwordHash, firstName, lastName, role: 'student' });
+  const user = await createUser({ email, password, firstName, lastName, role: 'student' });
   const tokens = signTokens(user);
   const refreshDoc = await persistRefresh(user, tokens.refresh, req);
-  res.status(201).json({ user: user.toSafeObject(), access: tokens.access, refresh: refreshDoc.token });
+  res.status(201).json({ user: toSafe(user), access: tokens.access, refresh: refreshDoc.token });
 });
 
 router.post('/login', body('email').isEmail(), body('password').notEmpty(), async (req, res) => {
@@ -36,7 +36,7 @@ router.post('/login', body('email').isEmail(), body('password').notEmpty(), asyn
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { email, password } = req.body;
   if (isLocked(email)) return res.status(423).json({ message: 'Account temporarily locked' });
-  const user = await User.findOne({ email });
+  const user = await findUserByEmail(email);
   if (!user) { trackLoginAttempt(email, false); return res.status(401).json({ message: 'Invalid credentials' }); }
   const valid = await argon2.verify(user.passwordHash, password);
   if (!valid) { const rec = trackLoginAttempt(email, false); return res.status(401).json({ message: 'Invalid credentials', lockedUntil: rec?.lockedUntil }); }
@@ -45,7 +45,7 @@ router.post('/login', body('email').isEmail(), body('password').notEmpty(), asyn
   await user.save();
   const tokens = signTokens(user);
   const refreshDoc = await persistRefresh(user, tokens.refresh, req);
-  res.json({ user: user.toSafeObject(), access: tokens.access, refresh: refreshDoc.token });
+  res.json({ user: toSafe(user), access: tokens.access, refresh: refreshDoc.token });
 });
 
 router.post('/refresh', async (req, res) => {
