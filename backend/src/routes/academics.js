@@ -21,6 +21,16 @@ router.post('/subjects', authenticate(['admin','management']), makeValidator(sch
 router.get('/subjects', authenticate(['admin','management','teacher']), async (req,res)=>{
   res.json(await Subject.find());
 });
+router.put('/subjects/:id', authenticate(['admin','management']), async (req,res)=>{
+  const updated = await Subject.findByIdAndUpdate(req.params.id, req.body, { new:true });
+  if (!updated) return res.status(404).json({ message: 'Not found' });
+  res.json(updated);
+});
+router.delete('/subjects/:id', authenticate(['admin','management']), async (req,res)=>{
+  const deleted = await Subject.findByIdAndDelete(req.params.id);
+  if (!deleted) return res.status(404).json({ message: 'Not found' });
+  res.json({ message: 'Deleted' });
+});
 
 // Grades
 router.post('/grades', authenticate(['admin','management']), makeValidator(schemas.createGrade), async (req,res)=>{
@@ -29,6 +39,16 @@ router.post('/grades', authenticate(['admin','management']), makeValidator(schem
 });
 router.get('/grades', authenticate(), async (req,res)=>{
   res.json(await Grade.find());
+});
+router.put('/grades/:id', authenticate(['admin','management']), async (req,res)=>{
+  const updated = await Grade.findByIdAndUpdate(req.params.id, req.body, { new:true });
+  if (!updated) return res.status(404).json({ message: 'Not found' });
+  res.json(updated);
+});
+router.delete('/grades/:id', authenticate(['admin','management']), async (req,res)=>{
+  const deleted = await Grade.findByIdAndDelete(req.params.id);
+  if (!deleted) return res.status(404).json({ message: 'Not found' });
+  res.json({ message: 'Deleted' });
 });
 
 // Classes
@@ -39,6 +59,16 @@ router.post('/classes', authenticate(['admin','management']), makeValidator(sche
 router.get('/classes', authenticate(), async (req,res)=>{
   const list = await ClassModel.find().populate('grade subject teacher');
   res.json(list);
+});
+router.put('/classes/:id', authenticate(['admin','management']), async (req,res)=>{
+  const updated = await ClassModel.findByIdAndUpdate(req.params.id, req.body, { new:true });
+  if (!updated) return res.status(404).json({ message: 'Not found' });
+  res.json(updated);
+});
+router.delete('/classes/:id', authenticate(['admin','management']), async (req,res)=>{
+  const deleted = await ClassModel.findByIdAndDelete(req.params.id);
+  if (!deleted) return res.status(404).json({ message: 'Not found' });
+  res.json({ message: 'Deleted' });
 });
 
 // Enrollment
@@ -83,6 +113,16 @@ router.get('/sessions/:classId', authenticate(), async (req,res)=>{
   const sessions = await Session.find({ class: req.params.classId });
   res.json(sessions);
 });
+router.put('/sessions/:id', authenticate(['teacher','admin','management']), async (req,res)=>{
+  const updated = await Session.findByIdAndUpdate(req.params.id, req.body, { new:true });
+  if (!updated) return res.status(404).json({ message: 'Not found' });
+  res.json(updated);
+});
+router.delete('/sessions/:id', authenticate(['teacher','admin','management']), async (req,res)=>{
+  const deleted = await Session.findByIdAndDelete(req.params.id);
+  if (!deleted) return res.status(404).json({ message: 'Not found' });
+  res.json({ message: 'Deleted' });
+});
 
 // Attendance update
 router.post('/attendance', authenticate(['teacher','admin','management']), makeValidator(schemas.attendance), async (req,res)=>{
@@ -109,6 +149,16 @@ router.post('/exams', authenticate(['teacher','admin','management']), async (req
 router.get('/exams/:classId', authenticate(), async (req,res)=>{
   res.json(await Exam.find({ class: req.params.classId }));
 });
+router.put('/exams/:id', authenticate(['teacher','admin','management']), async (req,res)=>{
+  const updated = await Exam.findByIdAndUpdate(req.params.id, req.body, { new:true });
+  if (!updated) return res.status(404).json({ message: 'Not found' });
+  res.json(updated);
+});
+router.delete('/exams/:id', authenticate(['teacher','admin','management']), async (req,res)=>{
+  const deleted = await Exam.findByIdAndDelete(req.params.id);
+  if (!deleted) return res.status(404).json({ message: 'Not found' });
+  res.json({ message: 'Deleted' });
+});
 
 // Marks
 router.post('/marks', authenticate(['teacher','admin','management']), async (req,res)=>{
@@ -118,6 +168,16 @@ router.post('/marks', authenticate(['teacher','admin','management']), async (req
 router.get('/marks/:examId', authenticate(), async (req,res)=>{
   res.json(await Mark.find({ exam: req.params.examId }).populate('student'));
 });
+router.put('/marks/:id', authenticate(['teacher','admin','management']), async (req,res)=>{
+  const updated = await Mark.findByIdAndUpdate(req.params.id, req.body, { new:true });
+  if (!updated) return res.status(404).json({ message: 'Not found' });
+  res.json(updated);
+});
+router.delete('/marks/:id', authenticate(['teacher','admin','management']), async (req,res)=>{
+  const deleted = await Mark.findByIdAndDelete(req.params.id);
+  if (!deleted) return res.status(404).json({ message: 'Not found' });
+  res.json({ message: 'Deleted' });
+});
 
 // Homework
 router.post('/homework', authenticate(['teacher','admin','management']), async (req,res)=>{
@@ -126,6 +186,16 @@ router.post('/homework', authenticate(['teacher','admin','management']), async (
 });
 router.get('/homework/:classId', authenticate(), async (req,res)=>{
   res.json(await Homework.find({ class: req.params.classId }));
+});
+router.put('/homework/:id', authenticate(['teacher','admin','management']), async (req,res)=>{
+  const updated = await Homework.findByIdAndUpdate(req.params.id, req.body, { new:true });
+  if (!updated) return res.status(404).json({ message: 'Not found' });
+  res.json(updated);
+});
+router.delete('/homework/:id', authenticate(['teacher','admin','management']), async (req,res)=>{
+  const deleted = await Homework.findByIdAndDelete(req.params.id);
+  if (!deleted) return res.status(404).json({ message: 'Not found' });
+  res.json({ message: 'Deleted' });
 });
 
 // Submission
@@ -137,6 +207,16 @@ router.get('/submissions/:homeworkId', authenticate(), async (req,res)=>{
   const filter = { homework: req.params.homeworkId };
   if (req.user.role === 'student') filter.student = req.user.id;
   res.json(await Submission.find(filter));
+});
+router.put('/submissions/:id', authenticate(['teacher','admin','management']), async (req,res)=>{
+  const updated = await Submission.findByIdAndUpdate(req.params.id, req.body, { new:true });
+  if (!updated) return res.status(404).json({ message: 'Not found' });
+  res.json(updated);
+});
+router.delete('/submissions/:id', authenticate(['teacher','admin','management']), async (req,res)=>{
+  const deleted = await Submission.findByIdAndDelete(req.params.id);
+  if (!deleted) return res.status(404).json({ message: 'Not found' });
+  res.json({ message: 'Deleted' });
 });
 
 export default router;

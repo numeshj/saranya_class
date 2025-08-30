@@ -11,6 +11,8 @@ import { errorHandler, notFound } from './middleware/error.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import academicRoutes from './routes/academics.js';
+import reportRoutes from './routes/reports.js';
+import metricsRoutes from './routes/metrics.js';
 import academicRoutes from './routes/academics.js';
 
 const app = express();
@@ -38,6 +40,8 @@ app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date().toISO
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/academic', academicRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/metrics', metricsRoutes);
 app.use('/api/academic', academicRoutes);
 
 app.use(notFound);
