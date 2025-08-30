@@ -3,9 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import { Link, Routes, Route, useNavigate } from 'react-router-dom';
 import Lottie from 'lottie-react';
 import successAnim from '../assets/lottie/success.json';
+import SubjectsPage from './SubjectsPage';
+import { useEventStream } from '../hooks/useEventStream';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
+  useEventStream();
   const nav = useNavigate();
   return (
     <div>
@@ -33,7 +36,7 @@ const Dashboard: React.FC = () => {
         </div>
       </main>
       <Routes>
-        <Route path="subjects" element={<div style={{ padding:'1rem' }}>Subjects Module Coming Soon</div>} />
+        <Route path="subjects" element={<SubjectsPage />} />
       </Routes>
     </div>
   );
