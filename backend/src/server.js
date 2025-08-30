@@ -13,6 +13,7 @@ import userRoutes from './routes/users.js';
 import academicRoutes from './routes/academics.js';
 import reportRoutes from './routes/reports.js';
 import metricsRoutes from './routes/metrics.js';
+import notificationRoutes from './routes/notifications.js';
 import academicRoutes from './routes/academics.js';
 
 const app = express();
@@ -42,6 +43,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/academic', academicRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/metrics', metricsRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/academic', academicRoutes);
 
 app.use(notFound);

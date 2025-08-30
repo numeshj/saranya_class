@@ -9,6 +9,7 @@ import { Mark } from '../models/Mark.js';
 import { Homework } from '../models/Homework.js';
 import { Submission } from '../models/Submission.js';
 import { makeValidator, schemas } from '../utils/validate.js';
+import { emitEvent } from '../utils/events.js';
 import { User } from '../models/User.js';
 
 const router = Router();
@@ -144,6 +145,7 @@ router.post('/attendance', authenticate(['teacher','admin','management']), makeV
 // Exams
 router.post('/exams', authenticate(['teacher','admin','management']), async (req,res)=>{
   const exam = await Exam.create(req.body);
+  emitEvent('exam.created', { id: exam.id, class: exam.class, title: exam.title });
   res.status(201).json(exam);
 });
 router.get('/exams/:classId', authenticate(), async (req,res)=>{
@@ -163,6 +165,7 @@ router.delete('/exams/:id', authenticate(['teacher','admin','management']), asyn
 // Marks
 router.post('/marks', authenticate(['teacher','admin','management']), async (req,res)=>{
   const mark = await Mark.create(req.body);
+  emitEvent('mark.recorded', { id: mark.id, exam: mark.exam, student: mark.student, score: mark.score });
   res.status(201).json(mark);
 });
 router.get('/marks/:examId', authenticate(), async (req,res)=>{
@@ -182,6 +185,7 @@ router.delete('/marks/:id', authenticate(['teacher','admin','management']), asyn
 // Homework
 router.post('/homework', authenticate(['teacher','admin','management']), async (req,res)=>{
   const hw = await Homework.create(req.body);
+  emitEvent('homework.created', { id: hw.id, class: hw.class, title: hw.title, dueDate: hw.dueDate });
   res.status(201).json(hw);
 });
 router.get('/homework/:classId', authenticate(), async (req,res)=>{
