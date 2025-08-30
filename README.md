@@ -26,3 +26,50 @@ docker compose up --build
 ```
 
 Frontend: http://localhost:5173  Backend API: http://localhost:4000
+
+## Languages & Frameworks
+- Frontend Language: TypeScript (React + Vite)
+- Backend Language: JavaScript (Node.js / Express)
+- Database Layers: MongoDB (NoSQL) with Mongoose, MySQL (SQL) with Prisma ORM (code-first)
+
+## Key Backend Modules
+Auth, Users, Roles, Academic (Subjects, Grades, Classes, Sessions, Exams, Marks, Homework, Submissions), Reports, Metrics, Notifications.
+
+## Security Features
+- JWT access & refresh (rotation)
+- Argon2 password hashing
+- Account lockout
+- Password reset tokens (hashed)
+- Optional TOTP 2FA
+- Rate limiting, Helmet, XSS clean, CSP placeholder
+
+## Realtime & Observability
+- SSE event stream for notifications
+- Prometheus metrics endpoint (/api/metrics)
+- Health endpoint (/health)
+
+## Development Scripts
+```
+cd backend
+npm install
+npm run dev
+# Prisma (MySQL) optional
+npm run prisma:generate
+npm run prisma:migrate
+npm run prisma:seed
+```
+
+## Frontend Dev
+```
+cd frontend
+npm install
+npm run dev
+```
+
+## Planned Enhancements
+- Complete UI for remaining modules (classes, exams, attendance, homework submissions)
+- Test coverage (unit + integration)
+- Role-based navigation refinement
+- Performance & index tuning
+- Full MySQL migration path
+

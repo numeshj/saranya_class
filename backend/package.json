@@ -8,6 +8,7 @@
     "seed": "node src/seed/seed.js",
   "prisma:generate": "prisma generate",
   "prisma:migrate": "prisma migrate dev --name init",
+  "prisma:seed": "node prisma/seed.js",
     "lint": "eslint .",
     "test": "node --test"
   },
