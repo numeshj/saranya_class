@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import argon2 from 'argon2';
+import { hashPassword } from '../src/utils/hash.js';
 
 const prisma = new PrismaClient();
 
@@ -11,7 +11,7 @@ async function run() {
   const adminEmail = 'admin@center.test';
   const existing = await prisma.user.findUnique({ where:{ email: adminEmail } });
   if (!existing) {
-    const passwordHash = await argon2.hash('AdminPass123!');
+  const passwordHash = await hashPassword('AdminPass123!');
     const adminRole = await prisma.role.findUnique({ where:{ name:'admin' } });
     await prisma.user.create({ data:{ firstName:'System', lastName:'Admin', email: adminEmail, passwordHash, roles:{ create:{ roleId: adminRole.id } } } });
     console.log('Prisma admin user created');

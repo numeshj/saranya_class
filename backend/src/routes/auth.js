@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
 import { findUserByEmail, createUser, toSafe } from '../services/userRepo.js';
 import { RefreshToken } from '../models/RefreshToken.js';
-import argon2 from 'argon2';
+import { verifyPassword, hashPassword } from '../utils/hash.js';
 import { body, validationResult } from 'express-validator';
 import { config } from '../config/env.js';
 import crypto from 'crypto';
@@ -12,12 +12,18 @@ import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import { trackLoginAttempt, isLocked } from '../middleware/auth.js';
 import { PasswordResetToken } from '../models/PasswordResetToken.js';
+import { prisma } from '../config/prisma.js';
+import { createRefreshToken, revokeRefreshToken, validateRefreshToken, rotateRefreshToken, createPasswordResetToken, consumePasswordResetToken } from '../services/tokenRepo.js';
 
 const router = Router();
+const usePrisma = !!process.env.MYSQL_URL;
 
 function signTokens(user) {
-  const access = jwt.sign({ role: user.role }, process.env.JWT_ACCESS_SECRET, { subject: user.id, expiresIn: config.accessTokenTtl });
-  const refresh = jwt.sign({ v: user.refreshTokenVersion }, process.env.JWT_REFRESH_SECRET, { subject: user.id, expiresIn: config.refreshTokenTtl });
+  const userId = usePrisma ? String(user.id) : user.id;
+  const roles = usePrisma ? (user.roles?.map(r=>r.role.name) || []) : [user.role];
+  const primaryRole = roles[0];
+  const access = jwt.sign({ roles, role: primaryRole }, process.env.JWT_ACCESS_SECRET, { subject: userId, expiresIn: config.accessTokenTtl });
+  const refresh = jwt.sign({ v: user.refreshTokenVersion || 0 }, process.env.JWT_REFRESH_SECRET, { subject: userId, expiresIn: config.refreshTokenTtl });
   return { access, refresh };
 }
 
@@ -27,7 +33,7 @@ router.post('/register', makeValidator(schemas.register), async (req, res) => {
   if (exists) return res.status(409).json({ message: 'Email in use' });
   const user = await createUser({ email, password, firstName, lastName, role: 'student' });
   const tokens = signTokens(user);
-  const refreshDoc = await persistRefresh(user, tokens.refresh, req);
+  const refreshDoc = await createRefreshToken({ userId: usePrisma ? user.id : user.id, rawToken: tokens.refresh, userAgent: req.headers['user-agent'], ip: req.ip });
   res.status(201).json({ user: toSafe(user), access: tokens.access, refresh: refreshDoc.token });
 });
 
@@ -38,13 +44,19 @@ router.post('/login', body('email').isEmail(), body('password').notEmpty(), asyn
   if (isLocked(email)) return res.status(423).json({ message: 'Account temporarily locked' });
   const user = await findUserByEmail(email);
   if (!user) { trackLoginAttempt(email, false); return res.status(401).json({ message: 'Invalid credentials' }); }
-  const valid = await argon2.verify(user.passwordHash, password);
+  const passwordHash = usePrisma ? user.passwordHash : user.passwordHash;
+  const valid = await verifyPassword(passwordHash, password);
   if (!valid) { const rec = trackLoginAttempt(email, false); return res.status(401).json({ message: 'Invalid credentials', lockedUntil: rec?.lockedUntil }); }
   trackLoginAttempt(email, true);
-  user.lastLoginAt = new Date();
-  await user.save();
+  // update lastLogin
+  if (usePrisma) {
+    await prisma.user.update({ where:{ id: user.id }, data:{ lastLoginAt: new Date() } });
+  } else {
+    user.lastLoginAt = new Date();
+    await user.save();
+  }
   const tokens = signTokens(user);
-  const refreshDoc = await persistRefresh(user, tokens.refresh, req);
+  const refreshDoc = await createRefreshToken({ userId: usePrisma ? user.id : user.id, rawToken: tokens.refresh, userAgent: req.headers['user-agent'], ip: req.ip });
   res.json({ user: toSafe(user), access: tokens.access, refresh: refreshDoc.token });
 });
 
@@ -53,17 +65,19 @@ router.post('/refresh', async (req, res) => {
   if (!refresh) return res.status(400).json({ message: 'Missing refresh token' });
   try {
     const payload = jwt.verify(refresh, process.env.JWT_REFRESH_SECRET);
-    const user = await User.findById(payload.sub);
+    const userId = payload.sub;
+    let user;
+    if (usePrisma) {
+      user = await prisma.user.findUnique({ where:{ id: Number(userId) }, include:{ roles:{ include:{ role:true } } } });
+    } else {
+      user = await User.findById(userId);
+    }
     if (!user) return res.status(401).json({ message: 'Invalid' });
-    const tokenHash = crypto.createHash('sha256').update(refresh).digest('hex');
-    const stored = await RefreshToken.findOne({ user: user.id, tokenHash, revokedAt: null });
-    if (!stored || stored.expiresAt < new Date()) return res.status(401).json({ message: 'Expired' });
-    // rotate
-    stored.revokedAt = new Date();
-    await stored.save();
+    const ok = await validateRefreshToken(refresh, userId);
+    if (!ok) return res.status(401).json({ message: 'Expired' });
     const tokens = signTokens(user);
-    const newDoc = await persistRefresh(user, tokens.refresh, req, stored.id);
-    res.json({ access: tokens.access, refresh: newDoc.token });
+    await rotateRefreshToken(refresh, tokens.refresh, userId, { userAgent: req.headers['user-agent'], ip: req.ip });
+    res.json({ access: tokens.access, refresh: tokens.refresh });
   } catch (e) {
     return res.status(401).json({ message: 'Invalid' });
   }
@@ -72,15 +86,15 @@ router.post('/refresh', async (req, res) => {
 router.post('/logout', async (req, res) => {
   const { refresh } = req.body;
   if (refresh) {
-    const tokenHash = crypto.createHash('sha256').update(refresh).digest('hex');
-    await RefreshToken.findOneAndUpdate({ tokenHash }, { revokedAt: new Date() });
+    await revokeRefreshToken(refresh);
   }
   res.json({ message: 'Logged out' });
 });
 
-// 2FA setup for admin/management users
+// 2FA setup (Mongo only currently)
 router.post('/2fa/setup', async (req,res) => {
-  const { refresh } = req.body; // require authentication via refresh for simplicity (could use access token + authenticate middleware)
+  if (usePrisma) return res.status(501).json({ message: '2FA setup via Prisma not yet implemented' });
+  const { refresh } = req.body;
   if (!refresh) return res.status(401).json({ message: 'Unauthorized' });
   try {
     const payload = jwt.verify(refresh, process.env.JWT_REFRESH_SECRET);
@@ -97,6 +111,7 @@ router.post('/2fa/setup', async (req,res) => {
 });
 
 router.post('/2fa/verify', async (req,res)=>{
+  if (usePrisma) return res.status(501).json({ message: '2FA verify via Prisma not yet implemented' });
   const { refresh, token } = req.body;
   if (!refresh || !token) return res.status(400).json({ message: 'Missing token' });
   try {
@@ -111,39 +126,31 @@ router.post('/2fa/verify', async (req,res)=>{
   }
 });
 
-async function persistRefresh(user, refresh, req, replacedBy) {
-  const tokenHash = crypto.createHash('sha256').update(refresh).digest('hex');
-  const decoded = jwt.decode(refresh);
-  const expiresAt = new Date(decoded.exp * 1000);
-  const doc = await RefreshToken.create({ user: user.id, tokenHash, userAgent: req.headers['user-agent'], ip: req.ip, expiresAt, replacedBy });
-  return { id: doc.id, token: refresh };
-}
-
-// Password reset request (returns token for demo; in production email it)
+// Password reset request
 router.post('/password/reset/request', body('email').isEmail(), async (req,res)=>{
   const { email } = req.body;
-  const user = await User.findOne({ email });
+  const user = await findUserByEmail(email);
   if (!user) return res.json({ message: 'If that email exists, a reset link has been sent' });
   const raw = crypto.randomBytes(32).toString('hex');
-  const tokenHash = crypto.createHash('sha256').update(raw).digest('hex');
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 30); // 30 min
-  await PasswordResetToken.create({ user: user.id, tokenHash, expiresAt });
-  // For now return raw token (simulate email)
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
+  await createPasswordResetToken(usePrisma ? user.id : user.id, raw, expiresAt);
   res.json({ message: 'Reset token generated', token: raw });
 });
 
 router.post('/password/reset/confirm', body('token').notEmpty(), body('password').isLength({ min:8 }), async (req,res)=>{
   const { token, password } = req.body;
-  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-  const rec = await PasswordResetToken.findOne({ tokenHash, usedAt: null, expiresAt: { $gt: new Date() } });
-  if (!rec) return res.status(400).json({ message: 'Invalid or expired reset token' });
-  const user = await User.findById(rec.user);
-  if (!user) return res.status(400).json({ message: 'User not found' });
-  user.passwordHash = await argon2.hash(password);
-  user.refreshTokenVersion += 1; // invalidate existing refresh tokens
-  await user.save();
-  rec.usedAt = new Date();
-  await rec.save();
+  const userId = await consumePasswordResetToken(token);
+  if (!userId) return res.status(400).json({ message: 'Invalid or expired reset token' });
+  if (usePrisma) {
+  const passwordHash = await hashPassword(password);
+    await prisma.user.update({ where:{ id: Number(userId) }, data:{ passwordHash, refreshTokenVersion: { increment:1 } } });
+  } else {
+    const user = await User.findById(userId);
+    if (!user) return res.status(400).json({ message: 'User not found' });
+  user.passwordHash = await hashPassword(password);
+    user.refreshTokenVersion += 1;
+    await user.save();
+  }
   res.json({ message: 'Password updated' });
 });
 

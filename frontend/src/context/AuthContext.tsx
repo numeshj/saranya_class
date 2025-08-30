@@ -2,18 +2,19 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import jwtDecode from 'jwt-decode';
 import { api } from '../services/api';
 
-type User = { id: string; email: string; role: string; firstName: string; lastName: string };
+type User = { id: string; email: string; role?: string; roles?: string[]; firstName: string; lastName: string };
 
 type AuthContextValue = {
   user: User | null;
   accessToken: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  hasRole: (...roles: string[]) => boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
@@ -39,7 +40,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   }
 
-  return <AuthContext.Provider value={{ user, accessToken, login, logout }}>{children}</AuthContext.Provider>;
+  function hasRole(...roles: string[]) {
+    if (!user) return false;
+    const userRoles = user.roles || (user.role ? [user.role] : []);
+    return roles.some(r => userRoles.includes(r));
+  }
+
+  return <AuthContext.Provider value={{ user, accessToken, login, logout, hasRole }}>{children}</AuthContext.Provider>;
 };
 
 export function useAuth() {

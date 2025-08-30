@@ -31,6 +31,12 @@ model User {
   children        User[]          @relation("ParentChild")
   roles           UserRole[]
   sessions        UserSession[]
+  teachingClasses Class[]         @relation("TeacherClasses")
+  enrollments     Enrollment[]
+  attendances     Attendance[]
+  marks           Mark[]
+  submissions     Submission[]
+  passwordResetTokens PasswordResetToken[]
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 }
@@ -88,9 +94,11 @@ model Class {
   teacherId Int
   grade     Grade     @relation(fields: [gradeId], references: [id])
   subject   Subject   @relation(fields: [subjectId], references: [id])
-  teacher   User      @relation(fields: [teacherId], references: [id])
+  teacher   User      @relation("TeacherClasses", fields: [teacherId], references: [id])
   sessions  Session[]
   enrollments Enrollment[]
+  exams     Exam[]
+  homeworks Homework[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   @@index([gradeId])

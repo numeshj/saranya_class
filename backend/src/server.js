@@ -15,7 +15,6 @@ import academicRoutes from './routes/academics.js';
 import reportRoutes from './routes/reports.js';
 import metricsRoutes from './routes/metrics.js';
 import notificationRoutes from './routes/notifications.js';
-import academicRoutes from './routes/academics.js';
 
 const app = express();
 
@@ -45,7 +44,6 @@ app.use('/api/academic', academicRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/metrics', metricsRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/academic', academicRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
@@ -57,7 +55,7 @@ async function start() {
     // Always connect to Mongo (primary current implementation)
     await mongoose.connect(process.env.MONGO_URI);
     // Optionally initialize Prisma (MySQL) if MYSQL_URL present
-    if (process.env.MYSQL_URL) {
+  if (process.env.MYSQL_URL && process.env.ENABLE_PRISMA !== 'false') {
       await initPrisma();
       console.log('Prisma (MySQL) connected');
     }

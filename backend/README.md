@@ -7,7 +7,7 @@ Initial scaffold with JWT auth, role-based access, security middleware.
 ```
 MONGO_URI=mongodb://127.0.0.1:27017/tuition_center
 PORT=4000
-CORS_ORIGINS=http://localhost:5173
+CORS_ORIGINS=http://localhost:5174
 JWT_ACCESS_SECRET=change_me
 JWT_REFRESH_SECRET=change_me
 # Optional MySQL (Prisma) dual persistence
@@ -19,7 +19,7 @@ MYSQL_URL="mysql://root:228646@localhost:3306/tuition_center"
 - Runtime Language: JavaScript (Node.js, modern ECMAScript modules)
 - Backend Framework: Express.js
 - Databases: MongoDB (Mongoose ODM) primary, optional MySQL via Prisma ORM
-- Auth & Security: JWT (access + refresh), Argon2 password hashing, optional TOTP 2FA (speakeasy), rate limiting, helmet, xss-clean
+- Auth & Security: JWT (access + refresh), scrypt-based password hashing (Node crypto), optional TOTP 2FA (speakeasy), rate limiting, helmet, xss-clean
 - Validation: Zod & express-validator (transitioning to Zod-first)
 - Realtime: Server-Sent Events (SSE) for notifications
 - Metrics: prom-client (optional)
@@ -78,7 +78,7 @@ npm run seed
 - users, subjects, grades, classes, sessions, exams, marks, homework, submissions, refresh tokens, password reset tokens.
 
 ## Security Highlights
-- Argon2id hashing, JWT secrets rotated via env, token version invalidation
+- Scrypt hashing (memory + CPU cost), JWT secrets rotated via env, token version invalidation
 - Rate limiting global (200 / 15m) plus account lockout
 - XSS mitigation, HTTP headers via helmet, input validation via Zod
 - Sensitive tokens stored hashed (refresh, reset)

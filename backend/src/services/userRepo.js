@@ -1,6 +1,6 @@
 import { User as MongoUser } from '../models/User.js';
 import { prisma } from '../config/prisma.js';
-import argon2 from 'argon2';
+import { hashPassword } from '../utils/hash.js';
 
 const usePrisma = !!process.env.MYSQL_URL;
 
@@ -10,7 +10,7 @@ export async function findUserByEmail(email) {
 }
 
 export async function createUser({ firstName, lastName, email, password, role='student' }) {
-  const passwordHash = await argon2.hash(password);
+  const passwordHash = await hashPassword(password);
   if (usePrisma) {
     // ensure role exists
     let r = await prisma.role.findUnique({ where:{ name: role } });

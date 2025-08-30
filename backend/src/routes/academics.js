@@ -223,4 +223,6 @@ router.delete('/submissions/:id', authenticate(['teacher','admin','management'])
   res.json({ message: 'Deleted' });
 });
 
+// NOTE: Current implementation uses Mongo models. Prisma adaptation pending for MySQL mode.
+
 export default router;
