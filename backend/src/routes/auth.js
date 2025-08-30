@@ -10,6 +10,7 @@ import { makeValidator, schemas } from '../utils/validate.js';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import { trackLoginAttempt, isLocked } from '../middleware/auth.js';
+import { PasswordResetToken } from '../models/PasswordResetToken.js';
 
 const router = Router();
 
@@ -117,5 +118,33 @@ async function persistRefresh(user, refresh, req, replacedBy) {
   const doc = await RefreshToken.create({ user: user.id, tokenHash, userAgent: req.headers['user-agent'], ip: req.ip, expiresAt, replacedBy });
   return { id: doc.id, token: refresh };
 }
+
+// Password reset request (returns token for demo; in production email it)
+router.post('/password/reset/request', body('email').isEmail(), async (req,res)=>{
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+  if (!user) return res.json({ message: 'If that email exists, a reset link has been sent' });
+  const raw = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(raw).digest('hex');
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 30); // 30 min
+  await PasswordResetToken.create({ user: user.id, tokenHash, expiresAt });
+  // For now return raw token (simulate email)
+  res.json({ message: 'Reset token generated', token: raw });
+});
+
+router.post('/password/reset/confirm', body('token').notEmpty(), body('password').isLength({ min:8 }), async (req,res)=>{
+  const { token, password } = req.body;
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const rec = await PasswordResetToken.findOne({ tokenHash, usedAt: null, expiresAt: { $gt: new Date() } });
+  if (!rec) return res.status(400).json({ message: 'Invalid or expired reset token' });
+  const user = await User.findById(rec.user);
+  if (!user) return res.status(400).json({ message: 'User not found' });
+  user.passwordHash = await argon2.hash(password);
+  user.refreshTokenVersion += 1; // invalidate existing refresh tokens
+  await user.save();
+  rec.usedAt = new Date();
+  await rec.save();
+  res.json({ message: 'Password updated' });
+});
 
 export default router;
