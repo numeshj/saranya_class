@@ -10,6 +10,8 @@ PORT=4000
 CORS_ORIGINS=http://localhost:5173
 JWT_ACCESS_SECRET=change_me
 JWT_REFRESH_SECRET=change_me
+# Optional MySQL (Prisma) dual persistence
+MYSQL_URL="mysql://root:228646@localhost:3306/tuition_center"
 ```
 
 ## Run

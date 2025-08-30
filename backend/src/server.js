@@ -1,6 +1,7 @@
 import './config/env.js';
 import express from 'express';
 import mongoose from 'mongoose';
+import { initPrisma } from './config/prisma.js';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cors from 'cors';
@@ -51,9 +52,19 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 4000;
 
-mongoose.connect(process.env.MONGO_URI).then(() => {
-  app.listen(PORT, () => console.log(`API listening on ${PORT}`));
-}).catch(err => {
-  console.error('DB connection error', err);
-  process.exit(1);
-});
+async function start() {
+  try {
+    // Always connect to Mongo (primary current implementation)
+    await mongoose.connect(process.env.MONGO_URI);
+    // Optionally initialize Prisma (MySQL) if MYSQL_URL present
+    if (process.env.MYSQL_URL) {
+      await initPrisma();
+      console.log('Prisma (MySQL) connected');
+    }
+    app.listen(PORT, () => console.log(`API listening on ${PORT}`));
+  } catch (err) {
+    console.error('DB connection error', err);
+    process.exit(1);
+  }
+}
+start();

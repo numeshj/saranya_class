@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "seed": "node src/seed/seed.js",
+  "prisma:generate": "prisma generate",
+  "prisma:migrate": "prisma migrate dev --name init",
     "lint": "eslint .",
     "test": "node --test"
   },
@@ -30,9 +32,10 @@
   "devDependencies": {
     "eslint": "^8.57.0",
     "nodemon": "^3.1.4",
-    "mongodb-memory-server": "^9.10.2"
+  "mongodb-memory-server": "^9.10.2",
+  "prisma": "^5.18.0"
   },
   "optionalDependencies": {
-    "prom-client": "^15.1.2"
+  "prom-client": "^15.1.2"
   }
 }

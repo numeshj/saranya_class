@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("MYSQL_URL")
+}
+
+model Role {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  users     UserRole[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model User {
+  id              Int             @id @default(autoincrement())
+  firstName       String
+  lastName        String
+  email           String          @unique
+  passwordHash    String
+  isActive        Boolean         @default(true)
+  lastLoginAt     DateTime?
+  passwordChangedAt DateTime?
+  refreshTokenVersion Int         @default(0)
+  twoFactorSecret String? 
+  parentId        Int?            @unique
+  parent          User?           @relation("ParentChild", fields: [parentId], references: [id])
+  children        User[]          @relation("ParentChild")
+  roles           UserRole[]
+  sessions        UserSession[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model UserRole {
+  userId Int
+  roleId Int
+  user   User   @relation(fields: [userId], references: [id])
+  role   Role   @relation(fields: [roleId], references: [id])
+  assignedAt DateTime @default(now())
+  @@id([userId, roleId])
+  @@index([roleId])
+}
+
+model UserSession {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  tokenHash String   @unique
+  userAgent String?
+  ip        String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Example additional table scaffolds for future parity with Mongo models
+model Subject {
+  id        Int       @id @default(autoincrement())
+  name      String
+  code      String    @unique
+  description String?
+  classes   Class[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Grade {
+  id        Int       @id @default(autoincrement())
+  level     String
+  description String?
+  classes   Class[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Class {
+  id        Int       @id @default(autoincrement())
+  name      String
+  gradeId   Int
+  subjectId Int
+  teacherId Int
+  grade     Grade     @relation(fields: [gradeId], references: [id])
+  subject   Subject   @relation(fields: [subjectId], references: [id])
+  teacher   User      @relation(fields: [teacherId], references: [id])
+  sessions  Session[]
+  enrollments Enrollment[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  @@index([gradeId])
+  @@index([subjectId])
+  @@index([teacherId])
+}
+
+model Enrollment {
+  id        Int      @id @default(autoincrement())
+  classId   Int
+  studentId Int
+  class     Class    @relation(fields: [classId], references: [id])
+  student   User     @relation(fields: [studentId], references: [id])
+  createdAt DateTime @default(now())
+  @@unique([classId, studentId])
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  classId   Int
+  date      DateTime
+  startTime String?
+  endTime   String?
+  topic     String?
+  class     Class    @relation(fields: [classId], references: [id])
+  attendance Attendance[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([classId])
+}
+
+model Attendance {
+  id        Int      @id @default(autoincrement())
+  sessionId Int
+  studentId Int
+  status    String   @default("present")
+  session   Session  @relation(fields: [sessionId], references: [id])
+  student   User     @relation(fields: [studentId], references: [id])
+  @@unique([sessionId, studentId])
+}
+
+model Exam {
+  id        Int     @id @default(autoincrement())
+  classId   Int
+  title     String
+  date      DateTime
+  totalMarks Int
+  weight    Int      @default(1)
+  class     Class   @relation(fields: [classId], references: [id])
+  marks     Mark[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([classId])
+}
+
+model Mark {
+  id        Int    @id @default(autoincrement())
+  examId    Int
+  studentId Int
+  score     Int
+  feedback  String?
+  exam      Exam   @relation(fields: [examId], references: [id])
+  student   User   @relation(fields: [studentId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([examId, studentId])
+  @@index([studentId])
+}
+
+model Homework {
+  id        Int    @id @default(autoincrement())
+  classId   Int
+  title     String
+  description String?
+  dueDate   DateTime?
+  class     Class @relation(fields: [classId], references: [id])
+  submissions Submission[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([classId])
+}
+
+model Submission {
+  id          Int    @id @default(autoincrement())
+  homeworkId  Int
+  studentId   Int
+  submittedAt DateTime @default(now())
+  content     String?
+  grade       Int?
+  feedback    String?
+  homework    Homework @relation(fields: [homeworkId], references: [id])
+  student     User     @relation(fields: [studentId], references: [id])
+  @@unique([homeworkId, studentId])
+}
